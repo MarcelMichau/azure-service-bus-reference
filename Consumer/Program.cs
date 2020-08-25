@@ -1,17 +1,22 @@
 ﻿using System;
-using System.Text;
 using System.Text.Json;
-using System.Threading;
 using System.Threading.Tasks;
+using Azure.Identity;
+using Azure.Messaging.ServiceBus;
+using Azure.Messaging.ServiceBus.Management;
 using Common;
-using Microsoft.Azure.ServiceBus;
-using Microsoft.Azure.ServiceBus.Management;
 
 namespace Consumer
 {
     internal class Program
     {
-        private const string ConnectionString = "Endpoint=sb://sb-marcel-michau-test.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=Tttww5okQ7576esE5o6fFWc4DusKbw03Jop0O4YZfXk=";
+        // To run these examples, first create a Service Bus Namespace with the Standard Tier in Azure & retrieve the Connection String for the Namespace & set it here:
+        private const string Namespace = "sb-marcel-michau-test.servicebus.windows.net";
+
+        private static readonly DefaultAzureCredential Credential = new DefaultAzureCredential(new DefaultAzureCredentialOptions
+        {
+            VisualStudioTenantId = "f75f1009-f6f1-4ee7-a028-372b490c585b"
+        });
 
         private static async Task Main(string[] args)
         {
@@ -20,7 +25,7 @@ namespace Consumer
 
             // 1. The simplest example of receiving a single text message from an Azure Service Bus Queue
             // To demonstrate the competing consumers pattern, start two or more instances of the Consumer before starting the Producer. Only one Consumer should pick up the message.
-            await ReceiveTextMessage();
+            //await ReceiveTextMessage();
 
             // 2. Receive a text message with some custom properties on the message
             //await ReceiveTextMessageWithProperties();
@@ -32,91 +37,150 @@ namespace Consumer
             //await ReceiveTextMessageOnTopicSubscription();
 
             // 5. Send a complex object to an Azure Service Bus Queue with Duplicate Detection
-            //await RecieveComplexObjectMessageWithDuplicateDetection();
+            await ReceiveComplexObjectMessageWithDuplicateDetection();
         }
 
         private static async Task ReceiveTextMessage()
         {
-            const string queuePath = "sbq-text-message";
+            const string queueName = "sbq-text-message";
 
-            var managementClient = new ManagementClient(ConnectionString);
+            var managementClient = new ServiceBusManagementClient(Namespace, Credential);
 
-            if (!await managementClient.QueueExistsAsync(queuePath))
+            if (!await managementClient.QueueExistsAsync(queueName))
             {
-                await managementClient.CreateQueueAsync(queuePath);
-            }
-
-            static async Task ProcessMessagesAsync(Message message, CancellationToken token)
-            {
-                var text = Encoding.UTF8.GetString(message.Body);
-                Console.WriteLine($"Received Message: { text }");
+                await managementClient.CreateQueueAsync(queueName);
             }
 
             Console.WriteLine($"Receiving messages for {nameof(ReceiveTextMessage)}...");
 
-            var queueClient = new QueueClient(ConnectionString, queuePath);
+            await using var client = new ServiceBusClient(Namespace, Credential);
 
-            queueClient.RegisterMessageHandler(ProcessMessagesAsync, ExceptionReceivedHandler);
+            // get the options to use for configuring the processor
+            var options = new ServiceBusProcessorOptions
+            {
+                // By default after the message handler returns, the processor will complete the message
+                // If we want more fine-grained control over settlement, we can set this to false.
+                AutoComplete = false,
+
+                // I can also allow for multi-threading
+                MaxConcurrentCalls = 2
+            };
+
+            // create a processor that we can use to process the messages
+            var processor = client.CreateProcessor(queueName, options);
+
+            processor.ProcessMessageAsync += MessageHandler;
+            processor.ProcessErrorAsync += ErrorHandler;
+
+            static async Task MessageHandler(ProcessMessageEventArgs args)
+            {
+                var body = args.Message.Body.ToString();
+                Console.WriteLine($"Received Message: { body }");
+
+                // we can evaluate application logic and use that to determine how to settle the message.
+                await args.CompleteMessageAsync(args.Message);
+            }
+
+            await processor.StartProcessingAsync();
 
             Console.WriteLine("Press Enter to exit.");
-            Console.ReadLine();
 
-            await queueClient.CloseAsync();
+            while (Console.ReadKey(true).Key != ConsoleKey.Enter) { }
+
+            await processor.StopProcessingAsync();
         }
 
         private static async Task ReceiveTextMessageWithProperties()
         {
-            const string queuePath = "sbq-text-message-with-properties";
+            const string queueName = "sbq-text-message-with-properties";
 
-            var managementClient = new ManagementClient(ConnectionString);
+            var managementClient = new ServiceBusManagementClient(Namespace, Credential);
 
-            if (!await managementClient.QueueExistsAsync(queuePath))
+            if (!await managementClient.QueueExistsAsync(queueName))
             {
-                await managementClient.CreateQueueAsync(queuePath);
-            }
-
-            static async Task ProcessMessagesAsync(Message message, CancellationToken token)
-            {
-                Console.WriteLine($"Message Body: { Encoding.UTF8.GetString(message.Body) }");
-                Console.WriteLine($"Content Type: { message.ContentType }");
-                Console.WriteLine($"Correlation ID: { message.CorrelationId }");
-                Console.WriteLine($"Label: { message.Label }");
-                Console.WriteLine($"Message Id: { message.MessageId }");
-                Console.WriteLine($"Time to Live: { message.TimeToLive }");
-                Console.WriteLine($"Scheduled Enqueue Time Utc: { message.ScheduledEnqueueTimeUtc }");
-
-                foreach (var (key, value) in message.UserProperties)
-                {
-                    Console.WriteLine($"UserProperty ({key}): { value }");
-                }
+                await managementClient.CreateQueueAsync(queueName);
             }
 
             Console.WriteLine($"Receiving messages for {nameof(ReceiveTextMessageWithProperties)}...");
 
-            var queueClient = new QueueClient(ConnectionString, queuePath);
+            await using var client = new ServiceBusClient(Namespace, Credential);
 
-            queueClient.RegisterMessageHandler(ProcessMessagesAsync, ExceptionReceivedHandler);
+            // get the options to use for configuring the processor
+            var options = new ServiceBusProcessorOptions
+            {
+                // By default after the message handler returns, the processor will complete the message
+                // If we want more fine-grained control over settlement, we can set this to false.
+                AutoComplete = false,
+
+                // I can also allow for multi-threading
+                MaxConcurrentCalls = 2
+            };
+
+            // create a processor that we can use to process the messages
+            var processor = client.CreateProcessor(queueName, options);
+
+            processor.ProcessMessageAsync += MessageHandler;
+            processor.ProcessErrorAsync += ErrorHandler;
+
+            static async Task MessageHandler(ProcessMessageEventArgs args)
+            {
+                var body = args.Message.Body.ToString();
+                Console.WriteLine($"Message Body: { body }");
+                Console.WriteLine($"Content Type: { args.Message.ContentType }");
+                Console.WriteLine($"Correlation ID: { args.Message.CorrelationId }");
+                Console.WriteLine($"Label: { args.Message.Label }");
+                Console.WriteLine($"Message Id: { args.Message.MessageId }");
+                Console.WriteLine($"Time to Live: { args.Message.TimeToLive }");
+                Console.WriteLine($"Scheduled Enqueue Time: { args.Message.ScheduledEnqueueTime }");
+
+                // we can evaluate application logic and use that to determine how to settle the message.
+                await args.CompleteMessageAsync(args.Message);
+            }
+
+            await processor.StartProcessingAsync();
 
             Console.WriteLine("Press Enter to exit.");
-            Console.ReadLine();
 
-            await queueClient.CloseAsync();
+            while (Console.ReadKey(true).Key != ConsoleKey.Enter) { }
+
+            await processor.StopProcessingAsync();
         }
 
         private static async Task ReceiveComplexObjectMessage()
         {
-            const string queuePath = "sbq-complex-object-message";
+            const string queueName = "sbq-complex-object-message";
 
-            var managementClient = new ManagementClient(ConnectionString);
+            var managementClient = new ServiceBusManagementClient(Namespace, Credential);
 
-            if (!await managementClient.QueueExistsAsync(queuePath))
+            if (!await managementClient.QueueExistsAsync(queueName))
             {
-                await managementClient.CreateQueueAsync(queuePath);
+                await managementClient.CreateQueueAsync(queueName);
             }
 
-            static async Task ProcessMessagesAsync(Message message, CancellationToken token)
+            Console.WriteLine($"Receiving messages for {nameof(ReceiveComplexObjectMessage)}...");
+
+            await using var client = new ServiceBusClient(Namespace, Credential);
+
+            // get the options to use for configuring the processor
+            var options = new ServiceBusProcessorOptions
             {
-                var rawMessage = Encoding.UTF8.GetString(message.Body);
+                // By default after the message handler returns, the processor will complete the message
+                // If we want more fine-grained control over settlement, we can set this to false.
+                AutoComplete = false,
+
+                // I can also allow for multi-threading
+                MaxConcurrentCalls = 2
+            };
+
+            // create a processor that we can use to process the messages
+            var processor = client.CreateProcessor(queueName, options);
+
+            processor.ProcessMessageAsync += MessageHandler;
+            processor.ProcessErrorAsync += ErrorHandler;
+
+            static async Task MessageHandler(ProcessMessageEventArgs args)
+            {
+                var rawMessage = args.Message.Body.ToString();
                 Console.WriteLine($"Received Message: { rawMessage }");
 
                 var payment = JsonSerializer.Deserialize<Payment>(rawMessage);
@@ -125,97 +189,143 @@ namespace Consumer
                 Console.WriteLine($"Amount: { payment.Amount }");
                 Console.WriteLine($"Date: { payment.PaymentDate }");
                 Console.WriteLine($"Payee: { payment.Payee }");
+
+                // we can evaluate application logic and use that to determine how to settle the message.
+                await args.CompleteMessageAsync(args.Message);
             }
 
-            Console.WriteLine($"Receiving messages for {nameof(ReceiveComplexObjectMessage)}...");
-
-            var queueClient = new QueueClient(ConnectionString, queuePath);
-
-            queueClient.RegisterMessageHandler(ProcessMessagesAsync, ExceptionReceivedHandler);
+            await processor.StartProcessingAsync();
 
             Console.WriteLine("Press Enter to exit.");
-            Console.ReadLine();
 
-            await queueClient.CloseAsync();
+            while (Console.ReadKey(true).Key != ConsoleKey.Enter) { }
+
+            await processor.StopProcessingAsync();
         }
 
         private static async Task ReceiveTextMessageOnTopicSubscription()
         {
-            const string topicPath = "sbt-text-message";
+            const string topicName = "sbt-text-message";
             const string subscriptionName = "sbs-text-message-consumer-subscription";
 
-            var managementClient = new ManagementClient(ConnectionString);
+            var managementClient = new ServiceBusManagementClient(Namespace, Credential);
 
-            if (!await managementClient.TopicExistsAsync(topicPath))
+            if (!await managementClient.TopicExistsAsync(topicName))
             {
-                await managementClient.CreateTopicAsync(topicPath);
+                await managementClient.CreateTopicAsync(topicName);
             }
 
-            if (!await managementClient.SubscriptionExistsAsync(topicPath, subscriptionName))
+            if (!await managementClient.SubscriptionExistsAsync(topicName, subscriptionName))
             {
-                await managementClient.CreateSubscriptionAsync(new SubscriptionDescription(topicPath, subscriptionName));
-            }
-
-            static async Task ProcessMessagesAsync(Message message, CancellationToken token)
-            {
-                var text = Encoding.UTF8.GetString(message.Body);
-                Console.WriteLine($"Received Message: { text }");
+                await managementClient.CreateSubscriptionAsync(topicName, subscriptionName);
             }
 
             Console.WriteLine($"Receiving messages for {nameof(ReceiveTextMessageOnTopicSubscription)}...");
 
-            var subscriptionClient = new SubscriptionClient(ConnectionString, topicPath, subscriptionName);
+            await using var client = new ServiceBusClient(Namespace, Credential);
 
-            subscriptionClient.RegisterMessageHandler(ProcessMessagesAsync, ExceptionReceivedHandler);
+            // get the options to use for configuring the processor
+            var options = new ServiceBusProcessorOptions
+            {
+                // By default after the message handler returns, the processor will complete the message
+                // If we want more fine-grained control over settlement, we can set this to false.
+                AutoComplete = false,
+
+                // I can also allow for multi-threading
+                MaxConcurrentCalls = 2
+            };
+
+            // create a processor that we can use to process the messages
+            var processor = client.CreateProcessor(topicName, subscriptionName, options);
+
+            processor.ProcessMessageAsync += MessageHandler;
+            processor.ProcessErrorAsync += ErrorHandler;
+
+            static async Task MessageHandler(ProcessMessageEventArgs args)
+            {
+                var body = args.Message.Body.ToString();
+                Console.WriteLine($"Received Message: { body }");
+
+                // we can evaluate application logic and use that to determine how to settle the message.
+                await args.CompleteMessageAsync(args.Message);
+            }
+
+            await processor.StartProcessingAsync();
 
             Console.WriteLine("Press Enter to exit.");
-            Console.ReadLine();
 
-            await subscriptionClient.CloseAsync();
+            while (Console.ReadKey(true).Key != ConsoleKey.Enter) { }
+
+            await processor.StopProcessingAsync();
         }
 
-        private static async Task RecieveComplexObjectMessageWithDuplicateDetection()
+        private static async Task ReceiveComplexObjectMessageWithDuplicateDetection()
         {
-            const string queuePath = "sbq-complex-object-message-with-duplicate";
+            const string queueName = "sbq-complex-object-message-with-duplicate";
 
-            var managementClient = new ManagementClient(ConnectionString);
+            var managementClient = new ServiceBusManagementClient(Namespace, Credential);
 
-            var queueDescription = new QueueDescription(queuePath)
+            var createQueueOptions = new CreateQueueOptions(queueName)
             {
                 RequiresDuplicateDetection = true,
                 DuplicateDetectionHistoryTimeWindow = TimeSpan.FromMinutes(10)
             };
 
-            if (!await managementClient.QueueExistsAsync(queuePath))
+            if (!await managementClient.QueueExistsAsync(queueName))
             {
-                await managementClient.CreateQueueAsync(queueDescription);
+                await managementClient.CreateQueueAsync(createQueueOptions);
             }
 
-            static async Task ProcessMessagesAsync(Message message, CancellationToken token)
+            Console.WriteLine($"Receiving messages for {nameof(ReceiveComplexObjectMessageWithDuplicateDetection)}...");
+
+            await using var client = new ServiceBusClient(Namespace, Credential);
+
+            // get the options to use for configuring the processor
+            var options = new ServiceBusProcessorOptions
             {
-                var rawMessage = Encoding.UTF8.GetString(message.Body);
-                Console.WriteLine($"Received Message: { rawMessage }");
+                // By default after the message handler returns, the processor will complete the message
+                // If we want more fine-grained control over settlement, we can set this to false.
+                AutoComplete = false,
+
+                // I can also allow for multi-threading
+                MaxConcurrentCalls = 2
+            };
+
+            // create a processor that we can use to process the messages
+            var processor = client.CreateProcessor(queueName, options);
+
+            processor.ProcessMessageAsync += MessageHandler;
+            processor.ProcessErrorAsync += ErrorHandler;
+
+            static async Task MessageHandler(ProcessMessageEventArgs args)
+            {
+                var rawMessage = args.Message.Body.ToString();
 
                 var payment = JsonSerializer.Deserialize<Payment>(rawMessage);
                 Console.WriteLine($"Received Payment with ID: { payment.PaymentId } for Payee: {payment.Payee}");
+
+                // we can evaluate application logic and use that to determine how to settle the message.
+                await args.CompleteMessageAsync(args.Message);
             }
 
-            Console.WriteLine($"Receiving messages for {nameof(RecieveComplexObjectMessageWithDuplicateDetection)}...");
-
-            var queueClient = new QueueClient(ConnectionString, queuePath);
-
-            queueClient.RegisterMessageHandler(ProcessMessagesAsync, ExceptionReceivedHandler);
+            await processor.StartProcessingAsync();
 
             Console.WriteLine("Press Enter to exit.");
-            Console.ReadLine();
 
-            await queueClient.CloseAsync();
+            while (Console.ReadKey(true).Key != ConsoleKey.Enter) { }
+
+            await processor.StopProcessingAsync();
         }
 
-        private static Task ExceptionReceivedHandler(ExceptionReceivedEventArgs exceptionReceivedEventArgs)
+        private static Task ErrorHandler(ProcessErrorEventArgs args)
         {
-            Console.WriteLine($"An error occurred: {exceptionReceivedEventArgs.Exception}");
-
+            // the error source tells me at what point in the processing an error occurred
+            Console.WriteLine(args.ErrorSource);
+            // the fully qualified namespace is available
+            Console.WriteLine(args.FullyQualifiedNamespace);
+            // as well as the entity path
+            Console.WriteLine(args.EntityPath);
+            Console.WriteLine(args.Exception.ToString());
             return Task.CompletedTask;
         }
     }

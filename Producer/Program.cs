@@ -3,15 +3,23 @@ using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using Azure.Core;
+using Azure.Identity;
+using Azure.Messaging.ServiceBus;
+using Azure.Messaging.ServiceBus.Management;
 using Common;
-using Microsoft.Azure.ServiceBus;
-using Microsoft.Azure.ServiceBus.Management;
 
 namespace Producer
 {
     internal class Program
     {
-        private const string ConnectionString = "Endpoint=sb://sb-marcel-michau-test.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=Tttww5okQ7576esE5o6fFWc4DusKbw03Jop0O4YZfXk=";
+        // To run these examples, first create a Service Bus Namespace with the Standard Tier in Azure & retrieve the Namespace value & set it here:
+        private const string Namespace = "sb-marcel-michau-test.servicebus.windows.net";
+
+        private static readonly DefaultAzureCredential Credential = new DefaultAzureCredential(new DefaultAzureCredentialOptions
+        {
+            VisualStudioTenantId = "f75f1009-f6f1-4ee7-a028-372b490c585b"
+        });
 
         private static async Task Main(string[] args)
         {
@@ -19,7 +27,7 @@ namespace Producer
             // Uncomment the example you'd like to run, and make sure the corresponding line in the Consumer project is uncommented as well.
 
             // 1. The simplest example of sending a single text message to an Azure Service Bus Queue
-            await SendTextMessage();
+            //await SendTextMessage();
 
             // 2. Send a text message with some custom properties on the message
             //await SendTextMessageWithProperties();
@@ -31,79 +39,95 @@ namespace Producer
             //await SendTextMessageToTopic();
 
             // 5. Send a complex object to an Azure Service Bus Queue with Duplicate Detection
-            //await SendComplexObjectMessageWithDuplicateDetection();
+            await SendComplexObjectMessageWithDuplicateDetection();
         }
 
         private static async Task SendTextMessage()
         {
-            const string queuePath = "sbq-text-message";
+            const string queueName = "sbq-text-message";
 
-            var managementClient = new ManagementClient(ConnectionString);
+            var managementClient = new ServiceBusManagementClient(Namespace, Credential);
 
-            if (!await managementClient.QueueExistsAsync(queuePath))
+            if (!await managementClient.QueueExistsAsync(queueName))
             {
-                await managementClient.CreateQueueAsync(queuePath);
+                await managementClient.CreateQueueAsync(queueName);
             }
 
-            var queueClient = new QueueClient(ConnectionString, queuePath);
+            await using var client = new ServiceBusClient(Namespace, Credential);
 
-            var message = new Message(Encoding.UTF8.GetBytes("This is a simple test message"));
+            var sender = client.CreateSender(queueName);
 
-            await queueClient.SendAsync(message);
+            var message = new ServiceBusMessage(Encoding.UTF8.GetBytes("This is a simple test message"));
 
-            Console.WriteLine($"Message Sent for {nameof(SendTextMessage)}");
+            Console.WriteLine("Press any key to send a message. Press Enter to exit.");
 
-            await queueClient.CloseAsync();
+            while (Console.ReadKey(true).Key != ConsoleKey.Enter)
+            {
+                await sender.SendMessageAsync(message);
+
+                Console.WriteLine($"Message Sent for {nameof(SendTextMessage)}");
+            }
+
             Console.ReadLine();
-            await managementClient.DeleteQueueAsync(queuePath);
+
+            await managementClient.DeleteQueueAsync(queueName);
         }
 
         private static async Task SendTextMessageWithProperties()
         {
-            const string queuePath = "sbq-text-message-with-properties";
+            const string queueName = "sbq-text-message-with-properties";
 
-            var managementClient = new ManagementClient(ConnectionString);
+            var managementClient = new ServiceBusManagementClient(Namespace, Credential);
 
-            if (!await managementClient.QueueExistsAsync(queuePath))
+            if (!await managementClient.QueueExistsAsync(queueName))
             {
-                await managementClient.CreateQueueAsync(queuePath);
+                await managementClient.CreateQueueAsync(queueName);
             }
 
-            var queueClient = new QueueClient(ConnectionString, queuePath);
+            await using var client = new ServiceBusClient(Namespace, Credential);
 
-            var message = new Message
+            var sender = client.CreateSender(queueName);
+
+            var message = new ServiceBusMessage
             {
-                Body = Encoding.UTF8.GetBytes("This is a simple test message"),
+                Body = new BinaryData("This is a simple test message"),
                 ContentType = "text/plain",
                 CorrelationId = Guid.NewGuid().ToString(),
                 Label = "Test Label",
                 MessageId = Guid.NewGuid().ToString(),
                 TimeToLive = TimeSpan.FromMinutes(10),
-                ScheduledEnqueueTimeUtc = DateTime.UtcNow,
-                UserProperties = { { "custom-property", "Custom Value" } }
+                ScheduledEnqueueTime = DateTime.UtcNow,
+                Properties = { { "custom-property", "Custom Value" } }
             };
 
-            await queueClient.SendAsync(message);
+            Console.WriteLine("Press any key to send a message. Press Enter to exit.");
 
-            Console.WriteLine($"Message Sent for {nameof(SendTextMessageWithProperties)}");
+            while (Console.ReadKey(true).Key != ConsoleKey.Enter)
+            {
+                await sender.SendMessageAsync(message);
 
-            await queueClient.CloseAsync();
+                Console.WriteLine($"Message Sent for {nameof(SendTextMessageWithProperties)}");
+            }
+
             Console.ReadLine();
-            await managementClient.DeleteQueueAsync(queuePath);
+
+            await managementClient.DeleteQueueAsync(queueName);
         }
 
         private static async Task SendComplexObjectMessage()
         {
-            const string queuePath = "sbq-complex-object-message";
+            const string queueName = "sbq-complex-object-message";
 
-            var managementClient = new ManagementClient(ConnectionString);
+            var managementClient = new ServiceBusManagementClient(Namespace, Credential);
 
-            if (!await managementClient.QueueExistsAsync(queuePath))
+            if (!await managementClient.QueueExistsAsync(queueName))
             {
-                await managementClient.CreateQueueAsync(queuePath);
+                await managementClient.CreateQueueAsync(queueName);
             }
 
-            var queueClient = new QueueClient(ConnectionString, queuePath);
+            await using var client = new ServiceBusClient(Namespace, Credential);
+
+            var sender = client.CreateSender(queueName);
 
             var payment = new Payment
             {
@@ -114,59 +138,73 @@ namespace Producer
                 Payee = "Mr John Smith"
             };
 
-            var message = new Message(JsonSerializer.SerializeToUtf8Bytes(payment));
+            var message = new ServiceBusMessage(JsonSerializer.SerializeToUtf8Bytes(payment));
 
-            await queueClient.SendAsync(message);
+            Console.WriteLine("Press any key to send a message. Press Enter to exit.");
 
-            Console.WriteLine($"Message Sent for {nameof(SendComplexObjectMessage)}");
+            while (Console.ReadKey(true).Key != ConsoleKey.Enter)
+            {
+                await sender.SendMessageAsync(message);
 
-            await queueClient.CloseAsync();
+                Console.WriteLine($"Message Sent for {nameof(SendComplexObjectMessage)}");
+            }
+
             Console.ReadLine();
-            await managementClient.DeleteQueueAsync(queuePath);
+
+            await managementClient.DeleteQueueAsync(queueName);
         }
 
         private static async Task SendTextMessageToTopic()
         {
-            const string topicPath = "sbt-text-message";
+            const string topicName = "sbt-text-message";
 
-            var managementClient = new ManagementClient(ConnectionString);
+            var managementClient = new ServiceBusManagementClient(Namespace, Credential);
 
-            if (!await managementClient.TopicExistsAsync(topicPath))
+            if (!await managementClient.TopicExistsAsync(topicName))
             {
-                await managementClient.CreateTopicAsync(topicPath);
+                await managementClient.CreateTopicAsync(topicName);
             }
 
-            var topicClient = new TopicClient(ConnectionString, topicPath);
+            await using var client = new ServiceBusClient(Namespace, Credential);
 
-            var message = new Message(Encoding.UTF8.GetBytes("This is a simple test message"));
+            var sender = client.CreateSender(topicName);
 
-            await topicClient.SendAsync(message);
+            var message = new ServiceBusMessage(Encoding.UTF8.GetBytes("This is a simple test message"));
 
-            Console.WriteLine($"Message Sent for {nameof(SendTextMessageToTopic)}");
+            Console.WriteLine("Press any key to send a message. Press Enter to exit.");
 
-            await topicClient.CloseAsync();
+            while (Console.ReadKey(true).Key != ConsoleKey.Enter)
+            {
+                await sender.SendMessageAsync(message);
+
+                Console.WriteLine($"Message Sent for {nameof(SendTextMessageToTopic)}");
+            }
+
             Console.ReadLine();
-            await managementClient.DeleteTopicAsync(topicPath);
+
+            await managementClient.DeleteQueueAsync(topicName);
         }
 
         private static async Task SendComplexObjectMessageWithDuplicateDetection()
         {
-            const string queuePath = "sbq-complex-object-message-with-duplicate";
+            const string queueName = "sbq-complex-object-message-with-duplicate";
 
-            var managementClient = new ManagementClient(ConnectionString);
+            var managementClient = new ServiceBusManagementClient(Namespace, Credential);
 
-            var queueDescription = new QueueDescription(queuePath)
+            var createQueueOptions = new CreateQueueOptions(queueName)
             {
                 RequiresDuplicateDetection = true,
                 DuplicateDetectionHistoryTimeWindow = TimeSpan.FromMinutes(10)
             };
 
-            if (!await managementClient.QueueExistsAsync(queuePath))
+            if (!await managementClient.QueueExistsAsync(queueName))
             {
-                await managementClient.CreateQueueAsync(queueDescription);
+                await managementClient.CreateQueueAsync(createQueueOptions);
             }
 
-            var queueClient = new QueueClient(ConnectionString, queuePath);
+            await using var client = new ServiceBusClient(Namespace, Credential);
+
+            var sender = client.CreateSender(queueName);
 
             var payments = new List<Payment>
             {
@@ -212,35 +250,40 @@ namespace Producer
                 }
             };
 
-            Console.WriteLine($"Total Payments to send: {payments.Count}");
+            Console.WriteLine("Press any key to send all payment messages. Press Enter to exit.");
 
-            foreach (var payment in payments)
+            while (Console.ReadKey(true).Key != ConsoleKey.Enter)
             {
-                var message = new Message(JsonSerializer.SerializeToUtf8Bytes(payment))
-                {
-                    MessageId = payment.PaymentId.ToString() // Needed to detect duplicate messages
-                };
+                Console.WriteLine($"Total Payments to send: {payments.Count}");
 
-                var random = new Random();
-
-                if (random.NextDouble() > 0.4) // Randomly simulate sending duplicate messages
+                foreach (var payment in payments)
                 {
-                    await queueClient.SendAsync(message);
-                    Console.WriteLine($"Message Sent for {nameof(SendComplexObjectMessageWithDuplicateDetection)} - Payment ID: {payment.PaymentId}");
-                }
-                else
-                {
-                    await queueClient.SendAsync(message);
-                    Console.WriteLine($"Message Sent for {nameof(SendComplexObjectMessageWithDuplicateDetection)} - Payment ID: {payment.PaymentId}");
+                    var message = new ServiceBusMessage(JsonSerializer.SerializeToUtf8Bytes(payment))
+                    {
+                        MessageId = payment.PaymentId.ToString() // Needed to detect duplicate messages
+                    };
 
-                    await queueClient.SendAsync(message);
-                    Console.WriteLine($"Message Sent for {nameof(SendComplexObjectMessageWithDuplicateDetection)} - Payment ID: {payment.PaymentId}");
+                    var random = new Random();
+
+                    if (random.NextDouble() > 0.4) // Randomly simulate sending duplicate messages
+                    {
+                        await sender.SendMessageAsync(message);
+                        Console.WriteLine($"Message Sent for {nameof(SendComplexObjectMessageWithDuplicateDetection)} - Payment ID: {payment.PaymentId}");
+                    }
+                    else
+                    {
+                        await sender.SendMessageAsync(message);
+                        Console.WriteLine($"Message Sent for {nameof(SendComplexObjectMessageWithDuplicateDetection)} - Payment ID: {payment.PaymentId}");
+
+                        await sender.SendMessageAsync(message);
+                        Console.WriteLine($"Message Sent for {nameof(SendComplexObjectMessageWithDuplicateDetection)} - Payment ID: {payment.PaymentId}");
+                    }
                 }
             }
 
-            await queueClient.CloseAsync();
             Console.ReadLine();
-            await managementClient.DeleteQueueAsync(queuePath);
+
+            await managementClient.DeleteQueueAsync(queueName);
         }
     }
 }

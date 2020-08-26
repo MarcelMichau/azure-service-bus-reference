@@ -28,7 +28,7 @@ Get your Azure AD Object ID:
 az ad signed-in-user show --query objectId
 
 Create the Role Assignment:
-az role assignment create --assignee <your_azure_ad_object_id> --role Azure "Service Bus Data Owner" --scope /subscriptions/<your_subscription_id>/resourceGroups/<resource_group_name>/providers/Microsoft.ServiceBus/namespaces/<your_service_bus_namespace_name>
+az role assignment create --assignee <your_azure_ad_object_id> --role "Azure Service Bus Data Owner" --scope /subscriptions/<your_subscription_id>/resourceGroups/<resource_group_name>/providers/Microsoft.ServiceBus/namespaces/<your_service_bus_namespace_name>
 ```
 
 ## Running the examples

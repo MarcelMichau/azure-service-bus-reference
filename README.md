@@ -11,15 +11,17 @@ The solution consists of two projects:
 
 These steps assume that you have an existing Resource Group with permissions to deploy resources into it.
 
-1. Create an Azure Service Bus Namespace for testing:
+1. Ensure you have the latest version of the [Azure CLI](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli?view=azure-cli-latest) installed.
+
+2. Create an Azure Service Bus Namespace for testing:
 
 ```
 az servicebus namespace create --resource-group <resource_group_name> --name <your_service_bus_namespace_name> --location southafricanorth
 ```
 
-2. Grab the Service Bus Endpoint URL in the format `<your_service_bus_namespace_name>.servicebus.windows.net` and paste that into both `Program.cs` files in each of the Producer & Consumer projects.
+3. Grab the Service Bus Endpoint URL in the format `<your_service_bus_namespace_name>.servicebus.windows.net` and paste that into both `Program.cs` files in each of the Producer & Consumer projects.
 
-3. The examples create/delete the necessary Queues + Topics + Subscriptions in code. In order to allow this, assign yourself the `Azure Service Bus Data Owner` Role to the Service Bus you just created:
+4. The examples create/delete the necessary Queues + Topics + Subscriptions in code. In order to allow this, assign yourself the `Azure Service Bus Data Owner` Role to the Service Bus you just created:
 
 ```
 Get your Azure AD Object ID:

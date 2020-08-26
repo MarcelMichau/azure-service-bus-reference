@@ -46,7 +46,7 @@ Open up a Terminal & change into the Consumer directory & run the Consumer proje
 dotnet run
 ```
 
-Change into the Producer directory & run the Producer project
+In a separate Terminal window, change into the Producer directory & run the Producer project
 
 ```
 dotnet run

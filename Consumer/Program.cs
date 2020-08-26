@@ -11,11 +11,11 @@ namespace Consumer
     internal class Program
     {
         // To run these examples, first create a Service Bus Namespace with the Standard Tier in Azure & retrieve the Connection String for the Namespace & set it here:
-        private const string Namespace = "sb-marcel-michau-test.servicebus.windows.net";
+        private const string Namespace = "<your-service-bus-namespace>.servicebus.windows.net";
 
         private static readonly DefaultAzureCredential Credential = new DefaultAzureCredential(new DefaultAzureCredentialOptions
         {
-            VisualStudioTenantId = "f75f1009-f6f1-4ee7-a028-372b490c585b"
+            // VisualStudioTenantId = "" // Set this GUID if you need to connect to a specific Azure AD Tenant
         });
 
         private static async Task Main(string[] args)
@@ -25,7 +25,7 @@ namespace Consumer
 
             // 1. The simplest example of receiving a single text message from an Azure Service Bus Queue
             // To demonstrate the competing consumers pattern, start two or more instances of the Consumer before starting the Producer. Only one Consumer should pick up the message.
-            //await ReceiveTextMessage();
+            await ReceiveTextMessage();
 
             // 2. Receive a text message with some custom properties on the message
             //await ReceiveTextMessageWithProperties();
@@ -37,7 +37,7 @@ namespace Consumer
             //await ReceiveTextMessageOnTopicSubscription();
 
             // 5. Send a complex object to an Azure Service Bus Queue with Duplicate Detection
-            await ReceiveComplexObjectMessageWithDuplicateDetection();
+            //await ReceiveComplexObjectMessageWithDuplicateDetection();
         }
 
         private static async Task ReceiveTextMessage()

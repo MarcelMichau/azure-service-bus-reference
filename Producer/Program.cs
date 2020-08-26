@@ -14,11 +14,11 @@ namespace Producer
     internal class Program
     {
         // To run these examples, first create a Service Bus Namespace with the Standard Tier in Azure & retrieve the Namespace value & set it here:
-        private const string Namespace = "sb-marcel-michau-test.servicebus.windows.net";
+        private const string Namespace = "<your-service-bus-namespace>.servicebus.windows.net";
 
         private static readonly DefaultAzureCredential Credential = new DefaultAzureCredential(new DefaultAzureCredentialOptions
         {
-            VisualStudioTenantId = "f75f1009-f6f1-4ee7-a028-372b490c585b"
+            // VisualStudioTenantId = "" // Set this GUID if you need to connect to a specific Azure AD Tenant
         });
 
         private static async Task Main(string[] args)
@@ -27,7 +27,7 @@ namespace Producer
             // Uncomment the example you'd like to run, and make sure the corresponding line in the Consumer project is uncommented as well.
 
             // 1. The simplest example of sending a single text message to an Azure Service Bus Queue
-            //await SendTextMessage();
+            await SendTextMessage();
 
             // 2. Send a text message with some custom properties on the message
             //await SendTextMessageWithProperties();
@@ -39,7 +39,7 @@ namespace Producer
             //await SendTextMessageToTopic();
 
             // 5. Send a complex object to an Azure Service Bus Queue with Duplicate Detection
-            await SendComplexObjectMessageWithDuplicateDetection();
+            //await SendComplexObjectMessageWithDuplicateDetection();
         }
 
         private static async Task SendTextMessage()

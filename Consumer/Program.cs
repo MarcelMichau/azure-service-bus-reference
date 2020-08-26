@@ -10,14 +10,6 @@ namespace Consumer
 {
     internal class Program
     {
-        // To run these examples, first create a Service Bus Namespace with the Standard Tier in Azure & retrieve the Connection String for the Namespace & set it here:
-        private const string Namespace = "<your-service-bus-namespace>.servicebus.windows.net";
-
-        private static readonly DefaultAzureCredential Credential = new DefaultAzureCredential(new DefaultAzureCredentialOptions
-        {
-            // VisualStudioTenantId = "" // Set this GUID if you need to connect to a specific Azure AD Tenant
-        });
-
         private static async Task Main(string[] args)
         {
             // Each line demonstrates a particular example of receiving a message from Azure Service Bus & has a corresponding line in the Producer project
@@ -44,7 +36,7 @@ namespace Consumer
         {
             const string queueName = "sbq-text-message";
 
-            var managementClient = new ServiceBusManagementClient(Namespace, Credential);
+            var managementClient = new ServiceBusManagementClient(Config.Namespace, Config.Credential);
 
             if (!await managementClient.QueueExistsAsync(queueName))
             {
@@ -53,7 +45,7 @@ namespace Consumer
 
             Console.WriteLine($"Receiving messages for {nameof(ReceiveTextMessage)}...");
 
-            await using var client = new ServiceBusClient(Namespace, Credential);
+            await using var client = new ServiceBusClient(Config.Namespace, Config.Credential);
 
             // get the options to use for configuring the processor
             var options = new ServiceBusProcessorOptions
@@ -94,7 +86,7 @@ namespace Consumer
         {
             const string queueName = "sbq-text-message-with-properties";
 
-            var managementClient = new ServiceBusManagementClient(Namespace, Credential);
+            var managementClient = new ServiceBusManagementClient(Config.Namespace, Config.Credential);
 
             if (!await managementClient.QueueExistsAsync(queueName))
             {
@@ -103,7 +95,7 @@ namespace Consumer
 
             Console.WriteLine($"Receiving messages for {nameof(ReceiveTextMessageWithProperties)}...");
 
-            await using var client = new ServiceBusClient(Namespace, Credential);
+            await using var client = new ServiceBusClient(Config.Namespace, Config.Credential);
 
             // get the options to use for configuring the processor
             var options = new ServiceBusProcessorOptions
@@ -150,7 +142,7 @@ namespace Consumer
         {
             const string queueName = "sbq-complex-object-message";
 
-            var managementClient = new ServiceBusManagementClient(Namespace, Credential);
+            var managementClient = new ServiceBusManagementClient(Config.Namespace, Config.Credential);
 
             if (!await managementClient.QueueExistsAsync(queueName))
             {
@@ -159,7 +151,7 @@ namespace Consumer
 
             Console.WriteLine($"Receiving messages for {nameof(ReceiveComplexObjectMessage)}...");
 
-            await using var client = new ServiceBusClient(Namespace, Credential);
+            await using var client = new ServiceBusClient(Config.Namespace, Config.Credential);
 
             // get the options to use for configuring the processor
             var options = new ServiceBusProcessorOptions
@@ -208,7 +200,7 @@ namespace Consumer
             const string topicName = "sbt-text-message";
             const string subscriptionName = "sbs-text-message-consumer-subscription";
 
-            var managementClient = new ServiceBusManagementClient(Namespace, Credential);
+            var managementClient = new ServiceBusManagementClient(Config.Namespace, Config.Credential);
 
             if (!await managementClient.TopicExistsAsync(topicName))
             {
@@ -222,7 +214,7 @@ namespace Consumer
 
             Console.WriteLine($"Receiving messages for {nameof(ReceiveTextMessageOnTopicSubscription)}...");
 
-            await using var client = new ServiceBusClient(Namespace, Credential);
+            await using var client = new ServiceBusClient(Config.Namespace, Config.Credential);
 
             // get the options to use for configuring the processor
             var options = new ServiceBusProcessorOptions
@@ -263,7 +255,7 @@ namespace Consumer
         {
             const string queueName = "sbq-complex-object-message-with-duplicate";
 
-            var managementClient = new ServiceBusManagementClient(Namespace, Credential);
+            var managementClient = new ServiceBusManagementClient(Config.Namespace, Config.Credential);
 
             var createQueueOptions = new CreateQueueOptions(queueName)
             {
@@ -278,7 +270,7 @@ namespace Consumer
 
             Console.WriteLine($"Receiving messages for {nameof(ReceiveComplexObjectMessageWithDuplicateDetection)}...");
 
-            await using var client = new ServiceBusClient(Namespace, Credential);
+            await using var client = new ServiceBusClient(Config.Namespace, Config.Credential);
 
             // get the options to use for configuring the processor
             var options = new ServiceBusProcessorOptions

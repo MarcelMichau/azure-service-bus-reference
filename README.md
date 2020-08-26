@@ -9,6 +9,11 @@ The solution consists of two projects:
 
 ## Prerequisites
 
+The code samples use the [Azure Identity client library for .NET](https://docs.microsoft.com/en-gb/dotnet/api/overview/azure/identity-readme?view=azure-dotnet) to authenticate with Azure Service Bus. Depending on how you run the samples, make sure the following is in place:
+
+- Visual Studio - Sign into Visual Studio with the same Microsoft Account you use for Azure.
+- .NET CLI - Sign into the Azure CLI with the same Microsoft Account you use for Azure using `az login`.
+
 These steps assume that you have an existing Resource Group with permissions to deploy resources into it.
 
 1. Ensure you have the latest version of the [Azure CLI](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli?view=azure-cli-latest) installed.
@@ -19,7 +24,7 @@ These steps assume that you have an existing Resource Group with permissions to 
 az servicebus namespace create --resource-group <resource_group_name> --name <your_service_bus_namespace_name> --location southafricanorth
 ```
 
-3. Grab the Service Bus Endpoint URL in the format `<your_service_bus_namespace_name>.servicebus.windows.net` and paste that into both `Program.cs` files in each of the Producer & Consumer projects.
+3. Grab the Service Bus Endpoint URL in the format `<your_service_bus_namespace_name>.servicebus.windows.net` and paste that into `Common/Config.cs`.
 
 4. The examples create/delete the necessary Queues + Topics + Subscriptions in code. In order to allow this, assign yourself the `Azure Service Bus Data Owner` Role to the Service Bus you just created:
 
@@ -46,3 +51,9 @@ Change into the Producer directory & run the Producer project
 ```
 dotnet run
 ```
+
+## Known Issues
+
+### AuthenticationFailedException is thrown when starting Console app
+
+Sometimes when running the samples from the .NET CLI using `dotnet run`, an `AuthenticationFailedException` can be thrown indicating an Authorization issue with the Azure CLI. To workaround this, use the `InteractiveBrowserCredential` for `Azure.Identity` by commenting out the `DefaultAzureCredential` in `Common/Config.cs` & replacing it with the `InteractiveBrowserCredential` option below it.

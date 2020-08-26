@@ -13,14 +13,6 @@ namespace Producer
 {
     internal class Program
     {
-        // To run these examples, first create a Service Bus Namespace with the Standard Tier in Azure & retrieve the Namespace value & set it here:
-        private const string Namespace = "<your-service-bus-namespace>.servicebus.windows.net";
-
-        private static readonly DefaultAzureCredential Credential = new DefaultAzureCredential(new DefaultAzureCredentialOptions
-        {
-            // VisualStudioTenantId = "" // Set this GUID if you need to connect to a specific Azure AD Tenant
-        });
-
         private static async Task Main(string[] args)
         {
             // Each line demonstrates a particular example of sending a message to Azure Service Bus & has a corresponding line in the Consumer project
@@ -46,14 +38,14 @@ namespace Producer
         {
             const string queueName = "sbq-text-message";
 
-            var managementClient = new ServiceBusManagementClient(Namespace, Credential);
+            var managementClient = new ServiceBusManagementClient(Config.Namespace, Config.Credential);
 
             if (!await managementClient.QueueExistsAsync(queueName))
             {
                 await managementClient.CreateQueueAsync(queueName);
             }
 
-            await using var client = new ServiceBusClient(Namespace, Credential);
+            await using var client = new ServiceBusClient(Config.Namespace, Config.Credential);
 
             var sender = client.CreateSender(queueName);
 
@@ -77,14 +69,14 @@ namespace Producer
         {
             const string queueName = "sbq-text-message-with-properties";
 
-            var managementClient = new ServiceBusManagementClient(Namespace, Credential);
+            var managementClient = new ServiceBusManagementClient(Config.Namespace, Config.Credential);
 
             if (!await managementClient.QueueExistsAsync(queueName))
             {
                 await managementClient.CreateQueueAsync(queueName);
             }
 
-            await using var client = new ServiceBusClient(Namespace, Credential);
+            await using var client = new ServiceBusClient(Config.Namespace, Config.Credential);
 
             var sender = client.CreateSender(queueName);
 
@@ -118,14 +110,14 @@ namespace Producer
         {
             const string queueName = "sbq-complex-object-message";
 
-            var managementClient = new ServiceBusManagementClient(Namespace, Credential);
+            var managementClient = new ServiceBusManagementClient(Config.Namespace, Config.Credential);
 
             if (!await managementClient.QueueExistsAsync(queueName))
             {
                 await managementClient.CreateQueueAsync(queueName);
             }
 
-            await using var client = new ServiceBusClient(Namespace, Credential);
+            await using var client = new ServiceBusClient(Config.Namespace, Config.Credential);
 
             var sender = client.CreateSender(queueName);
 
@@ -158,14 +150,14 @@ namespace Producer
         {
             const string topicName = "sbt-text-message";
 
-            var managementClient = new ServiceBusManagementClient(Namespace, Credential);
+            var managementClient = new ServiceBusManagementClient(Config.Namespace, Config.Credential);
 
             if (!await managementClient.TopicExistsAsync(topicName))
             {
                 await managementClient.CreateTopicAsync(topicName);
             }
 
-            await using var client = new ServiceBusClient(Namespace, Credential);
+            await using var client = new ServiceBusClient(Config.Namespace, Config.Credential);
 
             var sender = client.CreateSender(topicName);
 
@@ -189,7 +181,7 @@ namespace Producer
         {
             const string queueName = "sbq-complex-object-message-with-duplicate";
 
-            var managementClient = new ServiceBusManagementClient(Namespace, Credential);
+            var managementClient = new ServiceBusManagementClient(Config.Namespace, Config.Credential);
 
             var createQueueOptions = new CreateQueueOptions(queueName)
             {
@@ -202,7 +194,7 @@ namespace Producer
                 await managementClient.CreateQueueAsync(createQueueOptions);
             }
 
-            await using var client = new ServiceBusClient(Namespace, Credential);
+            await using var client = new ServiceBusClient(Config.Namespace, Config.Credential);
 
             var sender = client.CreateSender(queueName);
 

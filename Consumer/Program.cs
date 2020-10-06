@@ -3,7 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Azure.Messaging.ServiceBus;
-using Azure.Messaging.ServiceBus.Management;
+using Azure.Messaging.ServiceBus.Administration;
 using Common;
 
 namespace Consumer
@@ -39,7 +39,7 @@ namespace Consumer
         {
             const string queueName = "sbq-text-message";
 
-            var managementClient = new ServiceBusManagementClient(Config.Namespace, Config.Credential);
+            var managementClient = new ServiceBusAdministrationClient(Config.Namespace, Config.Credential);
 
             if (!await managementClient.QueueExistsAsync(queueName))
             {
@@ -89,7 +89,7 @@ namespace Consumer
         {
             const string queueName = "sbq-text-message-with-properties";
 
-            var managementClient = new ServiceBusManagementClient(Config.Namespace, Config.Credential);
+            var managementClient = new ServiceBusAdministrationClient(Config.Namespace, Config.Credential);
 
             if (!await managementClient.QueueExistsAsync(queueName))
             {
@@ -123,10 +123,14 @@ namespace Consumer
                 Console.WriteLine($"Message Body: { body }");
                 Console.WriteLine($"Content Type: { args.Message.ContentType }");
                 Console.WriteLine($"Correlation ID: { args.Message.CorrelationId }");
-                Console.WriteLine($"Label: { args.Message.Label }");
                 Console.WriteLine($"Message Id: { args.Message.MessageId }");
                 Console.WriteLine($"Time to Live: { args.Message.TimeToLive }");
                 Console.WriteLine($"Scheduled Enqueue Time: { args.Message.ScheduledEnqueueTime }");
+
+                foreach (var (key, value) in args.Message.ApplicationProperties)
+                {
+                    Console.WriteLine($"Custom property - {key}: {value}");
+                }
 
                 // we can evaluate application logic and use that to determine how to settle the message.
                 await args.CompleteMessageAsync(args.Message);
@@ -145,7 +149,7 @@ namespace Consumer
         {
             const string queueName = "sbq-complex-object-message";
 
-            var managementClient = new ServiceBusManagementClient(Config.Namespace, Config.Credential);
+            var managementClient = new ServiceBusAdministrationClient(Config.Namespace, Config.Credential);
 
             if (!await managementClient.QueueExistsAsync(queueName))
             {
@@ -203,7 +207,7 @@ namespace Consumer
             const string topicName = "sbt-text-message";
             const string subscriptionName = "sbs-text-message-consumer-subscription";
 
-            var managementClient = new ServiceBusManagementClient(Config.Namespace, Config.Credential);
+            var managementClient = new ServiceBusAdministrationClient(Config.Namespace, Config.Credential);
 
             if (!await managementClient.TopicExistsAsync(topicName))
             {
@@ -258,7 +262,7 @@ namespace Consumer
         {
             const string queueName = "sbq-complex-object-message-with-duplicate";
 
-            var managementClient = new ServiceBusManagementClient(Config.Namespace, Config.Credential);
+            var managementClient = new ServiceBusAdministrationClient(Config.Namespace, Config.Credential);
 
             var createQueueOptions = new CreateQueueOptions(queueName)
             {
@@ -317,7 +321,7 @@ namespace Consumer
             const string requestQueue = "sbq-request-queue";
             const string responseQueue = "sbq-response-queue";
 
-            var managementClient = new ServiceBusManagementClient(Config.Namespace, Config.Credential);
+            var managementClient = new ServiceBusAdministrationClient(Config.Namespace, Config.Credential);
 
             if (!await managementClient.QueueExistsAsync(requestQueue))
             {

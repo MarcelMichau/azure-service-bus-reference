@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
-using Azure.Core;
+using Azure;
 using Azure.Messaging.ServiceBus;
-using Azure.Messaging.ServiceBus.Management;
+using Azure.Messaging.ServiceBus.Administration;
 using Common;
 
 namespace Producer
@@ -40,7 +40,7 @@ namespace Producer
         {
             const string queueName = "sbq-text-message";
 
-            var managementClient = new ServiceBusManagementClient(Config.Namespace, Config.Credential);
+            var managementClient = new ServiceBusAdministrationClient(Config.Namespace, Config.Credential);
 
             if (!await managementClient.QueueExistsAsync(queueName))
             {
@@ -71,7 +71,7 @@ namespace Producer
         {
             const string queueName = "sbq-text-message-with-properties";
 
-            var managementClient = new ServiceBusManagementClient(Config.Namespace, Config.Credential);
+            var managementClient = new ServiceBusAdministrationClient(Config.Namespace, Config.Credential);
 
             if (!await managementClient.QueueExistsAsync(queueName))
             {
@@ -87,11 +87,10 @@ namespace Producer
                 Body = new BinaryData("This is a simple test message"),
                 ContentType = "text/plain",
                 CorrelationId = Guid.NewGuid().ToString(),
-                Label = "Test Label",
                 MessageId = Guid.NewGuid().ToString(),
                 TimeToLive = TimeSpan.FromMinutes(10),
                 ScheduledEnqueueTime = DateTime.UtcNow,
-                Properties = { { "custom-property", "Custom Value" } }
+                ApplicationProperties = { { "custom-property", "Custom Value" } }
             };
 
             Console.WriteLine("Press any key to send a message. Press Enter to exit.");
@@ -112,7 +111,7 @@ namespace Producer
         {
             const string queueName = "sbq-complex-object-message";
 
-            var managementClient = new ServiceBusManagementClient(Config.Namespace, Config.Credential);
+            var managementClient = new ServiceBusAdministrationClient(Config.Namespace, Config.Credential);
 
             if (!await managementClient.QueueExistsAsync(queueName))
             {
@@ -152,7 +151,7 @@ namespace Producer
         {
             const string topicName = "sbt-text-message";
 
-            var managementClient = new ServiceBusManagementClient(Config.Namespace, Config.Credential);
+            var managementClient = new ServiceBusAdministrationClient(Config.Namespace, Config.Credential);
 
             if (!await managementClient.TopicExistsAsync(topicName))
             {
@@ -183,7 +182,7 @@ namespace Producer
         {
             const string queueName = "sbq-complex-object-message-with-duplicate";
 
-            var managementClient = new ServiceBusManagementClient(Config.Namespace, Config.Credential);
+            var managementClient = new ServiceBusAdministrationClient(Config.Namespace, Config.Credential);
 
             var createQueueOptions = new CreateQueueOptions(queueName)
             {
@@ -285,7 +284,7 @@ namespace Producer
             const string requestQueue = "sbq-request-queue";
             const string responseQueue = "sbq-response-queue";
 
-            var managementClient = new ServiceBusManagementClient(Config.Namespace, Config.Credential);
+            var managementClient = new ServiceBusAdministrationClient(Config.Namespace, Config.Credential);
 
             if (!await managementClient.QueueExistsAsync(requestQueue))
             {

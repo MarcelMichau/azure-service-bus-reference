@@ -1,7 +1,7 @@
 ﻿using System;
+using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
-using Azure.Identity;
 using Azure.Messaging.ServiceBus;
 using Azure.Messaging.ServiceBus.Management;
 using Common;
@@ -30,6 +30,9 @@ namespace Consumer
 
             // 5. Send a complex object to an Azure Service Bus Queue with Duplicate Detection
             //await ReceiveComplexObjectMessageWithDuplicateDetection();
+
+            // 6. Receive a request message to a session-enabled queue & receive a response message back.
+            //await ReceiveRequestMessageWithResponse();
         }
 
         private static async Task ReceiveTextMessage()
@@ -307,6 +310,80 @@ namespace Consumer
             while (Console.ReadKey(true).Key != ConsoleKey.Enter) { }
 
             await processor.StopProcessingAsync();
+        }
+
+        private static async Task ReceiveRequestMessageWithResponse()
+        {
+            const string requestQueue = "sbq-request-queue";
+            const string responseQueue = "sbq-response-queue";
+
+            var managementClient = new ServiceBusManagementClient(Config.Namespace, Config.Credential);
+
+            if (!await managementClient.QueueExistsAsync(requestQueue))
+            {
+                await managementClient.CreateQueueAsync(requestQueue);
+            }
+
+            if (!await managementClient.QueueExistsAsync(responseQueue))
+            {
+                var createQueueOptions = new CreateQueueOptions(responseQueue)
+                {
+                    RequiresSession = true
+                };
+
+                await managementClient.CreateQueueAsync(createQueueOptions);
+            }
+
+            Console.WriteLine($"Receiving messages for {nameof(ReceiveRequestMessageWithResponse)}...");
+
+            await using var client = new ServiceBusClient(Config.Namespace, Config.Credential);
+
+            // get the options to use for configuring the processor
+            var options = new ServiceBusProcessorOptions
+            {
+                // By default after the message handler returns, the processor will complete the message
+                // If we want more fine-grained control over settlement, we can set this to false.
+                AutoComplete = false,
+
+                // I can also allow for multi-threading
+                MaxConcurrentCalls = 2
+            };
+
+            // create a processor that we can use to process the messages
+            var processor = client.CreateProcessor(requestQueue, options);
+
+            processor.ProcessMessageAsync += MessageHandler;
+            processor.ProcessErrorAsync += ErrorHandler;
+
+            static async Task MessageHandler(ProcessMessageEventArgs args)
+            {
+                var body = args.Message.Body.ToString();
+                Console.WriteLine($"Received Message: { body }");
+
+                var responseMessage = new ServiceBusMessage(Encoding.UTF8.GetBytes($"ECHO: {body}"))
+                {
+                    SessionId = args.Message.ReplyToSessionId
+                };
+
+                await using var responseClient = new ServiceBusClient(Config.Namespace, Config.Credential);
+
+                var sender = responseClient.CreateSender(responseQueue);
+
+                await sender.SendMessageAsync(responseMessage);
+
+                // we can evaluate application logic and use that to determine how to settle the message.
+                await args.CompleteMessageAsync(args.Message);
+            }
+
+            await processor.StartProcessingAsync();
+
+            Console.WriteLine("Press Enter to exit.");
+
+            while (Console.ReadKey(true).Key != ConsoleKey.Enter) { }
+
+            await processor.StopProcessingAsync(); 
+            await managementClient.DeleteQueueAsync(requestQueue);
+            await managementClient.DeleteQueueAsync(responseQueue);
         }
 
         private static Task ErrorHandler(ProcessErrorEventArgs args)

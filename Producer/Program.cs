@@ -4,7 +4,6 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Azure.Core;
-using Azure.Identity;
 using Azure.Messaging.ServiceBus;
 using Azure.Messaging.ServiceBus.Management;
 using Common;
@@ -32,6 +31,9 @@ namespace Producer
 
             // 5. Send a complex object to an Azure Service Bus Queue with Duplicate Detection
             //await SendComplexObjectMessageWithDuplicateDetection();
+
+            // 6. Send a request message to a session-enabled queue & receive a response message back.
+            //await SendRequestMessageWithResponse();
         }
 
         private static async Task SendTextMessage()
@@ -276,6 +278,89 @@ namespace Producer
             Console.ReadLine();
 
             await managementClient.DeleteQueueAsync(queueName);
+        }
+
+        private static async Task SendRequestMessageWithResponse()
+        {
+            const string requestQueue = "sbq-request-queue";
+            const string responseQueue = "sbq-response-queue";
+
+            var managementClient = new ServiceBusManagementClient(Config.Namespace, Config.Credential);
+
+            if (!await managementClient.QueueExistsAsync(requestQueue))
+            {
+                await managementClient.CreateQueueAsync(requestQueue);
+            }
+
+            if (!await managementClient.QueueExistsAsync(responseQueue))
+            {
+                var createQueueOptions = new CreateQueueOptions(responseQueue)
+                {
+                    RequiresSession = true
+                };
+
+                await managementClient.CreateQueueAsync(createQueueOptions);
+            }
+
+            var responseSessionId = Guid.NewGuid().ToString();
+
+            await using var requestClient = new ServiceBusClient(Config.Namespace, Config.Credential);
+
+            var sender = requestClient.CreateSender(requestQueue);
+
+            var message = new ServiceBusMessage(Encoding.UTF8.GetBytes("This is a simple test message"))
+            {
+                ReplyToSessionId = responseSessionId
+            };
+
+            Console.WriteLine("Press any key to send a message. Press Enter to exit.");
+
+            await using var responseClient = new ServiceBusClient(Config.Namespace, Config.Credential);
+
+            var sessionProcessor = responseClient.CreateSessionProcessor(responseQueue, new ServiceBusSessionProcessorOptions
+            {
+                SessionIds = new []{ responseSessionId }
+            });
+
+            sessionProcessor.ProcessMessageAsync += MessageHandler;
+            sessionProcessor.ProcessErrorAsync += ErrorHandler;
+
+            static async Task MessageHandler(ProcessSessionMessageEventArgs args)
+            {
+                var body = args.Message.Body.ToString();
+                Console.WriteLine($"Received Message: { body }");
+
+                // we can evaluate application logic and use that to determine how to settle the message.
+                await args.CompleteMessageAsync(args.Message);
+            }
+
+            await sessionProcessor.StartProcessingAsync();
+
+            while (Console.ReadKey(true).Key != ConsoleKey.Enter)
+            {
+                await sender.SendMessageAsync(message);
+
+                Console.WriteLine($"Message Sent for {nameof(SendRequestMessageWithResponse)}");
+            }
+
+            Console.ReadLine();
+
+            await sessionProcessor.StopProcessingAsync();
+
+            await managementClient.DeleteQueueAsync(requestQueue);
+            await managementClient.DeleteQueueAsync(responseQueue);
+        }
+
+        private static Task ErrorHandler(ProcessErrorEventArgs args)
+        {
+            // the error source tells me at what point in the processing an error occurred
+            Console.WriteLine(args.ErrorSource);
+            // the fully qualified namespace is available
+            Console.WriteLine(args.FullyQualifiedNamespace);
+            // as well as the entity path
+            Console.WriteLine(args.EntityPath);
+            Console.WriteLine(args.Exception.ToString());
+            return Task.CompletedTask;
         }
     }
 }

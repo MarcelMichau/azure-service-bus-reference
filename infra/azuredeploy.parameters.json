@@ -1,0 +1,30 @@
+{
+	"$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"tags": {
+			"value": {
+				"costCenter": "12345",
+				"environment": "sbx",
+				"application": "my-cloud-native-app",
+				"description": "Service Bus for my-cloud-native-app",
+				"managedBy": "ARM"
+			}
+		},
+		"serviceBusNamespaceName": {
+			"value": "sb-service-bus-for-my-cloud-native-app"
+		},
+		"serviceBusQueueName": {
+			"value": "sbq-my-test-queue"
+		},
+		"serviceBusSkuName": {
+			"value": "Standard"
+		},
+		"serviceBusTopicName": {
+			"value": "sbt-my-test-topic"
+		},
+		"serviceBusSubscriptionName": {
+			"value": "sbq-my-test-topic-subscription"
+		}
+	}
+}

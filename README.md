@@ -52,6 +52,48 @@ In a separate Terminal window, change into the Producer directory & run the Prod
 dotnet run
 ```
 
+## Integration with Other Azure Services
+
+### Azure Logic Apps
+
+**From Logic App to Service Bus Queue/Topic**
+
+Logic Apps do not natively support connecting to Service Bus using the Logic App Managed Identity. A workaround for this is to call the Service Bus REST API with a HTTP Webhook step from the Logic App as follows:
+   ![](images/2020-10-12-07-37-52.png)
+
+   - Method: `POST`
+   - URI: `https://<service bus name>.servicebus.windows.net/<queue or topic name>/messages`
+   - Body: Message Body (from previous step or otherwise)
+   - Authentication type: `Managed Identity`
+   - Managed Identity: `System Assigned Managed Identity`
+   - Audience: `https://servicebus.azure.net`
+
+### Azure Event Grid
+
+**From Service Bus Queue/Subscription to Event Grid**
+
+To subscribe to a Service Bus queue from Event Grid, you will require a premium Service Bus namespace as the standard namespace does not support events.
+
+1. Navigate to `Events` on the Premium Service Bus namespace & click on `+ Event Subscription` to create a new Event Grid System Topic to subscribe to:
+   
+   ![](images/2020-10-12-08-20-52.png)
+
+2. On the `Create Event Subscription` blade, capture the following information:
+
+   ![](images/2020-10-12-08-22-20.png)
+
+   - Event Subscription Details
+     - Name: Meaningful name of the subscription
+     - Event Schema: `Event Grid Schema`
+   - Topic Details
+     - System Topic Name: Meaningful Name for your Event Grid System Topic
+   - Endpoint Details
+     - The destination endpoint to forward events to (i.e. Azure Function/Web Hook/Storage Queues/Event Hubs/Hybrid Connections/Service Bus Queue/Service Bus Topic)
+
+The event which is published to the Endpoint does *not* contain the message data, only the details of the Service Bus queue/subscription which received the message. It is up to the subscribing app (e.g. Azure Function) to use the information in this event to pick the message off of the relevant queue.
+
+More information on integration with Event Grid can be found here: https://docs.microsoft.com/en-us/azure/service-bus-messaging/service-bus-to-event-grid-integration-concept
+
 ## Known Issues
 
 ### AuthenticationFailedException is thrown when starting Console app

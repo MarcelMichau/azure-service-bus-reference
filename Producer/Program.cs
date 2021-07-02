@@ -316,10 +316,11 @@ namespace Producer
 
             await using var responseClient = new ServiceBusClient(Config.Namespace, Config.Credential);
 
-            var sessionProcessor = responseClient.CreateSessionProcessor(responseQueue, new ServiceBusSessionProcessorOptions
-            {
-                SessionIds = new []{ responseSessionId }
-            });
+            var serviceBusSessionProcessorOptions = new ServiceBusSessionProcessorOptions();
+
+            serviceBusSessionProcessorOptions.SessionIds.Add(responseSessionId);
+
+            var sessionProcessor = responseClient.CreateSessionProcessor(responseQueue, serviceBusSessionProcessorOptions);
 
             sessionProcessor.ProcessMessageAsync += MessageHandler;
             sessionProcessor.ProcessErrorAsync += ErrorHandler;
